@@ -19,7 +19,7 @@ interface BackupResult {
   success: boolean;
   filename?: string;
   size?: number;
-  type?: "daily" | "weekly" | "monthly";
+  type?: "daily" | "weekly" | "monthly" | "manual";
   error?: string;
   duration?: number;
 }
@@ -28,7 +28,7 @@ interface BackupFile {
   key: string;
   size: number;
   lastModified: Date;
-  type: "daily" | "weekly" | "monthly";
+  type: "daily" | "weekly" | "monthly" | "manual";
 }
 
 export interface VerificationResult {
@@ -576,11 +576,12 @@ class DatabaseBackupService {
     }
 
     return result.files
-      .filter(f => f.key.endsWith(".sql.gz") || f.key.endsWith(".dump"))
+      .filter(f => f.key.endsWith(".sql.gz") || f.key.endsWith(".dump") || f.key.includes("/manual/"))
       .map(f => {
-        let type: "daily" | "weekly" | "monthly" = "daily";
-        if (f.key.includes("/weekly/")) type = "weekly";
-        if (f.key.includes("/monthly/")) type = "monthly";
+        let type: "daily" | "weekly" | "monthly" | "manual" = "daily";
+        if (f.key.includes("/manual/")) type = "manual";
+        else if (f.key.includes("/weekly/")) type = "weekly";
+        else if (f.key.includes("/monthly/")) type = "monthly";
         
         return {
           key: f.key,

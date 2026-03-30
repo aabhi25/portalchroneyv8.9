@@ -26160,6 +26160,42 @@ Be constructive and helpful. Return ONLY valid JSON.`;
     }
   });
 
+  // R2 Cloud Backup - Manual file upload to R2
+  app.post("/api/super-admin/backups/upload", requireAuth, requireRole("super_admin"), multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 1024 * 1024 * 1024 }, // 1 GB max
+  }).single("file"), async (req: any, res: any) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+
+      const originalName = req.file.originalname || "upload";
+      const timestamp = Date.now();
+      const key = `database-backups/manual/${timestamp}-${originalName}`;
+      const contentType = req.file.mimetype || "application/octet-stream";
+
+      const result = await r2Storage.uploadWithExactKey(req.file.buffer, key, contentType);
+
+      if (!result.success) {
+        return res.status(500).json({ error: result.error || "Upload to R2 failed" });
+      }
+
+      console.log('[R2 Backup] Manual file uploaded by SuperAdmin:', key);
+
+      res.json({
+        success: true,
+        key: result.key,
+        url: result.url,
+        size: req.file.size,
+        filename: originalName,
+      });
+    } catch (error: any) {
+      console.error('[R2 Backup] Error uploading file to R2:', error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
   // AI Conversation Analysis endpoint
   app.get("/api/insights/conversation-analysis", requireAuth, requireBusinessAccount, async (req, res) => {
     try {

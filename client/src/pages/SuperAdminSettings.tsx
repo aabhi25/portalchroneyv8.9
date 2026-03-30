@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, Lock, AlertCircle, Sparkles, Database, Download, Brain, CheckCircle2, XCircle, Loader2, RefreshCw, Cloud, Trash2, Calendar, HardDrive, ChevronRight, ArrowDownToLine } from "lucide-react";
+import { Settings2, Lock, AlertCircle, Sparkles, Database, Download, Brain, CheckCircle2, XCircle, Loader2, RefreshCw, Cloud, Trash2, Calendar, HardDrive, ChevronRight, ArrowDownToLine, Upload } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -361,6 +361,8 @@ export default function SuperAdminSettings() {
   const [restoringBackup, setRestoringBackup] = useState<string | null>(null);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [backupToRestore, setBackupToRestore] = useState<string | null>(null);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const restoreBackupMutation = useMutation({
     mutationFn: async (backupKey: string) => {
       setRestoringBackup(backupKey);
@@ -598,6 +600,45 @@ export default function SuperAdminSettings() {
     },
   });
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    setIsUploadingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/super-admin/backups/upload", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed");
+      }
+
+      toast({
+        title: "File Uploaded",
+        description: `"${file.name}" has been saved to R2 storage.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/super-admin/backups'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/super-admin/backups/stats'] });
+    } catch (error: any) {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload file to R2",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingFile(false);
+    }
+  };
+
   return (
     <div className="flex flex-col flex-1 h-screen">
       {/* Header */}
@@ -808,7 +849,14 @@ export default function SuperAdminSettings() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 mb-4">
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="*/*"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
                   <Button
                     onClick={() => triggerBackupMutation.mutate()}
                     disabled={triggerBackupMutation.isPending || !!activeBackupJob}
@@ -864,6 +912,18 @@ export default function SuperAdminSettings() {
                   </Button>
                   <Button
                     variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingFile}
+                  >
+                    {isUploadingFile ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Upload className="w-4 h-4 mr-2" />
+                    )}
+                    {isUploadingFile ? "Uploading..." : "Upload File"}
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={() => { refetchBackups(); refetchBackupStats(); }}
                     disabled={backupsLoading}
                   >
@@ -892,6 +952,7 @@ export default function SuperAdminSettings() {
                             <Badge variant="outline" className={
                               backup.type === 'monthly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                               backup.type === 'weekly' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                              backup.type === 'manual' ? 'bg-orange-50 text-orange-700 border-orange-200' :
                               'bg-blue-50 text-blue-700 border-blue-200'
                             }>
                               {backup.type}
