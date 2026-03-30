@@ -718,6 +718,40 @@ class DatabaseBackupService {
         this.log('RESTORE_DOWNLOAD', `Downloaded in ${(downloadDuration / 1000).toFixed(1)}s`, { sizeMB });
         this.setRestoreProgress('Downloading', 1, 8, 15, `Downloaded ${sizeMB} MB`);
 
+        // Pre-validate the archive with pg_restore --list BEFORE touching the database.
+        // This is a read-only check that confirms the file is a valid pg_dump custom-format
+        // archive. If it fails, we abort immediately — the database is never modified.
+        this.setRestoreProgress('Validating', 1, 8, 16, 'Validating backup archive integrity...');
+        this.log('RESTORE_VALIDATION', 'Pre-validating archive with pg_restore --list (read-only, no DB changes)...');
+        const archiveValidationError = await new Promise<string | null>((resolve) => {
+          const pgList = spawn('pg_restore', ['--list', tempFile], { stdio: ['ignore', 'pipe', 'pipe'] });
+          const errChunks: string[] = [];
+          pgList.stderr.on('data', (d: Buffer) => errChunks.push(d.toString()));
+          pgList.on('close', (code) => {
+            if (code !== 0) {
+              resolve(errChunks.join('').trim() || `pg_restore --list exited with code ${code}`);
+            } else {
+              resolve(null);
+            }
+          });
+          pgList.on('error', (err: Error) => resolve(`pg_restore process error: ${err.message}`));
+        });
+
+        if (archiveValidationError) {
+          try { await fs.promises.unlink(tempFile); } catch (_) {}
+          const isVersionIssue = archiveValidationError.toLowerCase().includes('does not appear to be a valid archive') ||
+                                  archiveValidationError.toLowerCase().includes('unsupported version');
+          const userFacingError = isVersionIssue
+            ? 'This backup cannot be restored: it was created with a different (likely newer) version of PostgreSQL. Your database has NOT been modified. Create a fresh backup from this environment to get a compatible file.'
+            : `Backup archive validation failed — the file may be corrupted or in an unsupported format. Your database has NOT been modified. Details: ${archiveValidationError}`;
+          this.logError('RESTORE_VALIDATION', 'Archive pre-validation failed — aborting before any DB changes', archiveValidationError);
+          this.clearRestoreProgress(userFacingError);
+          await this.updateBackupJobFailed(correlationId, userFacingError, archiveValidationError);
+          return { success: false, error: userFacingError };
+        }
+
+        this.log('RESTORE_VALIDATION', 'Archive pre-validation passed — proceeding with restore');
+
         try {
           const result = await this.runPgRestoreDataRestore(databaseUrl, tempFile);
           restoreDuration = result.duration;
@@ -783,6 +817,15 @@ class DatabaseBackupService {
 
   private getRestoreUserFriendlyError(error: any): string {
     const message = error.message || String(error);
+    if (message.includes('EMPTY_RESTORE')) {
+      return 'Restore failed: the backup file was restored but the database ended up empty. The backup may have been created with an incompatible PostgreSQL version. Your data may have been lost — restore from a different backup or create a fresh one.';
+    }
+    if (message.includes('does not appear to be a valid archive') || message.includes('pg_restore rejected the backup file')) {
+      return 'Restore failed: this backup file is not compatible with the current PostgreSQL version. It was likely created on a different server. Your database has NOT been modified — please use a backup created in this environment.';
+    }
+    if (message.includes('Archive pre-validation failed') || message.includes('incompatible PostgreSQL version')) {
+      return message;
+    }
     if (message.includes('psql') || message.includes('PSQL')) {
       return 'Database restore failed. The backup file may be corrupted or incompatible.';
     }
@@ -1211,9 +1254,24 @@ END$$;
       });
     });
 
-    if (pgRestoreExitCode > 1) {
-      const errorSample = pgRestoreStderr.join('').slice(-1000);
-      throw new Error(`pg_restore exited with fatal code ${pgRestoreExitCode}: ${errorSample}`);
+    const allStderr = pgRestoreStderr.join('');
+
+    // Detect fatal archive-level errors that make the entire restore meaningless.
+    // These appear in stderr regardless of exit code, so we check explicitly.
+    const fatalArchivePatterns = [
+      'does not appear to be a valid archive',
+      'input file appears to be a text format dump',
+      'unsupported version',
+    ];
+    const fatalArchiveError = fatalArchivePatterns.find(p => allStderr.toLowerCase().includes(p));
+
+    if (fatalArchiveError || pgRestoreExitCode > 1) {
+      const errorSample = allStderr.slice(-1000);
+      throw new Error(
+        fatalArchiveError
+          ? `pg_restore rejected the backup file (exit ${pgRestoreExitCode}): "${fatalArchiveError}". The backup was likely created with an incompatible PostgreSQL version. Details: ${errorSample}`
+          : `pg_restore exited with fatal code ${pgRestoreExitCode}: ${errorSample}`
+      );
     }
 
     if (pgRestoreExitCode === 1) {
@@ -1324,6 +1382,21 @@ END$$;
       this.log('RESTORE_PG', `Verification complete: ${okCount} tables OK, ${failedCount} tables skipped/failed`);
     } catch (verifyErr: any) {
       this.log('RESTORE_PG', `Warning: Verification step failed: ${verifyErr.message}`);
+    }
+
+    // Safety check OUTSIDE the try/catch so it is never silently swallowed.
+    // If every table has 0 rows the restore failed completely — a real production
+    // backup always contains at least some data.
+    if (verificationReport && verificationReport.length > 0) {
+      const totalRows = verificationReport.reduce((sum, r) => sum + r.actual, 0);
+      if (totalRows === 0) {
+        throw new Error(
+          `EMPTY_RESTORE: pg_restore ran but the database is completely empty — ` +
+          `all ${verificationReport.length} tables have 0 rows. ` +
+          `pg_restore exited with code ${pgRestoreExitCode}. ` +
+          `Stderr: ${allStderr.slice(-500)}`
+        );
+      }
     }
 
     const duration = Date.now() - startTime;
