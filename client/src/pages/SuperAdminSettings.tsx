@@ -39,13 +39,13 @@ interface BackupFile {
   key: string;
   size: number;
   lastModified: string;
-  type: "daily" | "weekly" | "monthly";
+  type: "daily" | "weekly" | "monthly" | "manual";
 }
 
 interface BackupStats {
   totalBackups: number;
   totalSize: number;
-  byType: { daily: number; weekly: number; monthly: number };
+  byType: { daily: number; weekly: number; monthly: number; manual: number };
   oldestBackup: string | null;
   newestBackup: string | null;
 }
@@ -88,7 +88,7 @@ interface BackupJob {
     success: boolean;
     filename?: string;
     size?: number;
-    type?: 'daily' | 'weekly' | 'monthly';
+    type?: 'daily' | 'weekly' | 'monthly' | 'manual';
     error?: string;
   };
 }

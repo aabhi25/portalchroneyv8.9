@@ -26163,7 +26163,7 @@ Be constructive and helpful. Return ONLY valid JSON.`;
   // R2 Cloud Backup - Manual file upload to R2
   app.post("/api/super-admin/backups/upload", requireAuth, requireRole("super_admin"), multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 1024 * 1024 * 1024 }, // 1 GB max
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB max
   }).single("file"), async (req: any, res: any) => {
     try {
       if (!req.file) {

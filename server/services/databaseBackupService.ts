@@ -630,7 +630,7 @@ class DatabaseBackupService {
   async getBackupStats(): Promise<{
     totalBackups: number;
     totalSize: number;
-    byType: { daily: number; weekly: number; monthly: number };
+    byType: { daily: number; weekly: number; monthly: number; manual: number };
     oldestBackup: Date | null;
     newestBackup: Date | null;
   }> {
@@ -639,7 +639,7 @@ class DatabaseBackupService {
     const stats = {
       totalBackups: backups.length,
       totalSize: backups.reduce((sum, b) => sum + b.size, 0),
-      byType: { daily: 0, weekly: 0, monthly: 0 },
+      byType: { daily: 0, weekly: 0, monthly: 0, manual: 0 },
       oldestBackup: backups.length > 0 ? backups[backups.length - 1].lastModified : null,
       newestBackup: backups.length > 0 ? backups[0].lastModified : null,
     };
