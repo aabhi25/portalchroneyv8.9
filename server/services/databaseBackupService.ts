@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { createGunzip } from "zlib";
+import { createGunzip, createGzip } from "zlib";
 import { PassThrough, Readable } from "stream";
 import * as readline from "readline";
 import * as fs from "fs";
@@ -171,7 +171,7 @@ class DatabaseBackupService {
 
   private getBackupFilename(type: "daily" | "weekly" | "monthly", date: Date): string {
     const dateStr = this.formatDate(date);
-    return `${BACKUP_PREFIX}/${type}/backup_${dateStr}.dump`;
+    return `${BACKUP_PREFIX}/${type}/backup_${dateStr}.sql.gz`;
   }
 
   private log(stage: string, message: string, data?: any): void {
@@ -224,10 +224,10 @@ class DatabaseBackupService {
         }
       };
 
-      this.log('STREAM', 'Starting streaming backup (pg_dump -Fc -> R2 multipart upload)...');
-      onProgress?.('dumping', 'Starting streaming database dump (custom format)...', 15);
+      this.log('STREAM', 'Starting streaming backup (pg_dump plain SQL -> gzip -> R2 multipart upload)...');
+      onProgress?.('dumping', 'Starting streaming database dump (plain SQL + gzip)...', 15);
 
-      const pgDump = spawn('pg_dump', ['-Fc', '--no-owner', '--no-acl', databaseUrl], {
+      const pgDump = spawn('pg_dump', ['--format=plain', '--no-owner', '--no-acl', databaseUrl], {
         stdio: ['ignore', 'pipe', 'pipe'],
       });
       this.activePgDump = pgDump;
@@ -241,11 +241,13 @@ class DatabaseBackupService {
       });
 
       let bytesProcessed = 0;
+      const gzipStream = createGzip();
       const progressStream = new PassThrough();
 
       pgDumpTimeoutId = setTimeout(() => {
         if (!pgDumpExited) {
           this.logError('STREAM', `pg_dump timed out after ${PG_DUMP_TIMEOUT_MS / 1000 / 60} minutes`);
+          gzipStream.destroy();
           cleanup(pgDump, progressStream);
           safeResolve({
             success: false,
@@ -262,6 +264,7 @@ class DatabaseBackupService {
 
       pgDump.on('error', (error) => {
         this.logError('STREAM', 'pg_dump process error', error);
+        gzipStream.destroy();
         cleanup(pgDump, progressStream);
         safeResolve({
           success: false,
@@ -279,6 +282,7 @@ class DatabaseBackupService {
         if (code !== 0) {
           const errorMsg = errorChunks.join('') || `pg_dump exited with code ${code}`;
           this.logError('STREAM', `pg_dump failed with exit code ${code}`, errorMsg);
+          gzipStream.destroy();
           cleanup(pgDump, progressStream);
           safeResolve({
             success: false,
@@ -287,7 +291,7 @@ class DatabaseBackupService {
             error: `pg_dump failed: ${errorMsg}`,
           });
         } else {
-          this.log('STREAM', 'pg_dump completed successfully, waiting for upload to finish...');
+          this.log('STREAM', 'pg_dump completed successfully, waiting for gzip + upload to finish...');
         }
       });
 
@@ -296,11 +300,11 @@ class DatabaseBackupService {
         if (bytesProcessed % (10 * 1024 * 1024) < 65536) {
           const mbProcessed = (bytesProcessed / 1024 / 1024).toFixed(1);
           this.log('STREAM', `Streaming progress: ${mbProcessed} MB`);
-          onProgress?.('uploading', `Streaming: ${mbProcessed} MB uploaded...`, Math.min(80, 20 + (bytesProcessed / 1024 / 1024)));
+          onProgress?.('uploading', `Streaming: ${mbProcessed} MB compressed, uploading...`, Math.min(80, 20 + (bytesProcessed / 1024 / 1024)));
         }
       });
 
-      pgDump.stdout.pipe(progressStream);
+      pgDump.stdout.pipe(gzipStream).pipe(progressStream);
 
       onProgress?.('uploading', 'Starting multipart upload to R2...', 20);
 
@@ -349,7 +353,7 @@ class DatabaseBackupService {
         }
 
         const finalDuration = Date.now() - startTime;
-        this.log('STREAM', `Streaming backup (custom format) completed successfully`, {
+        this.log('STREAM', `Streaming backup (plain SQL + gzip) completed successfully`, {
           totalBytes: uploadResult.totalBytes,
           totalMB: ((uploadResult.totalBytes || 0) / 1024 / 1024).toFixed(2),
           durationSec: (finalDuration / 1000).toFixed(1),
