@@ -946,56 +946,60 @@ export default function SuperAdminSettings() {
                     <div className="space-y-2">
                       {backups.slice(0, 10).map((backup) => (
                         <div key={backup.key} className="flex items-center justify-between p-2 bg-white rounded border text-sm">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                            <span className="font-mono text-xs whitespace-nowrap">
-                              {backup.key.split('/').pop()}
-                            </span>
-                            {backup.url && (
-                              <>
-                                <button
-                                  className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                                  title="Copy R2 URL"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigator.clipboard.writeText(backup.url ?? '');
-                                    setCopiedKey(backup.key);
-                                    setTimeout(() => setCopiedKey(null), 1500);
-                                  }}
-                                >
-                                  {copiedKey === backup.key ? (
-                                    <Check className="w-3 h-3 text-green-500" />
-                                  ) : (
-                                    <Copy className="w-3 h-3" />
-                                  )}
-                                </button>
-                                <a
-                                  href={backup.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                                  title="Open in new tab"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              </>
-                            )}
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                              <span className="font-mono text-xs whitespace-nowrap">
+                                {backup.key.split('/').pop()}
+                              </span>
+                              {backup.url && (
+                                <>
+                                  <button
+                                    className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="Copy R2 URL"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(backup.url ?? '');
+                                      setCopiedKey(backup.key);
+                                      setTimeout(() => setCopiedKey(null), 1500);
+                                    }}
+                                  >
+                                    {copiedKey === backup.key ? (
+                                      <Check className="w-3 h-3 text-green-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                  <a
+                                    href={backup.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                                    title="Open in new tab"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                </>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 pl-5">
+                              <Badge variant="outline" className={
+                                backup.type === 'monthly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                backup.type === 'weekly' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                                backup.type === 'manual' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                                'bg-blue-50 text-blue-700 border-blue-200'
+                              }>
+                                {backup.type}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(backup.lastModified).toLocaleDateString()}
+                              </span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-3 flex-shrink-0">
-                            <Badge variant="outline" className={
-                              backup.type === 'monthly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                              backup.type === 'weekly' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                              backup.type === 'manual' ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                              'bg-blue-50 text-blue-700 border-blue-200'
-                            }>
-                              {backup.type}
-                            </Badge>
                             <span className="text-xs text-muted-foreground">
                               {(backup.size / 1024 / 1024).toFixed(2)} MB
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(backup.lastModified).toLocaleDateString()}
                             </span>
                             <Button
                               variant="ghost"
