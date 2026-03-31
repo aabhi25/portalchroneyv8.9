@@ -466,7 +466,8 @@ class DatabaseBackupService {
       const backupDuration = streamingResult.duration;
 
       if (filename.endsWith('.sql.gz')) {
-        this.log('VERIFY', 'Verifying uploaded backup integrity (full gzip decompression test)...');
+        const uploadedSizeMB = (streamingResult.totalBytes / 1024 / 1024).toFixed(2);
+        this.log('VERIFY', `Verifying uploaded backup integrity (full gzip decompression test, ${uploadedSizeMB} MB)...`);
         const verification = await r2Storage.verifyGzipIntegrity(filename);
         if (!verification.valid) {
           const errorMsg = `Backup uploaded but failed integrity check: ${verification.error}`;
@@ -478,7 +479,7 @@ class DatabaseBackupService {
           await this.updateBackupJobFailed(correlationId, errorMsg, errorMsg);
           return result;
         }
-        this.log('VERIFY', 'Backup integrity verified — gzip stream fully decompressed without errors');
+        this.log('VERIFY', `Backup integrity verified — gzip stream (${uploadedSizeMB} MB) fully decompressed without errors`);
       } else if (filename.endsWith('.dump')) {
         this.log('VERIFY', 'Verifying uploaded backup integrity (PGDMP magic bytes check)...');
         const verification = await r2Storage.verifyPgdmpHeader(filename);
