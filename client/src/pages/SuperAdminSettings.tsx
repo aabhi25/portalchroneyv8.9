@@ -993,7 +993,7 @@ export default function SuperAdminSettings() {
                                 {backup.type}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(backup.lastModified).toLocaleDateString()}
+                                {new Date(backup.lastModified).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).replace(/(\d+)/, (_, d) => { const s = ['th','st','nd','rd']; const v = +d % 100; return d + (s[(v-20)%10] || s[v] || s[0]); })}, {new Date(backup.lastModified).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).toUpperCase()}
                               </span>
                             </div>
                           </div>
