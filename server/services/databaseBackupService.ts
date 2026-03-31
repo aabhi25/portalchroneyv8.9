@@ -169,9 +169,17 @@ class DatabaseBackupService {
     return date.toISOString().split("T")[0];
   }
 
+  private formatTime(date: Date): string {
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    const ss = String(date.getSeconds()).padStart(2, '0');
+    return `${hh}-${mm}-${ss}`;
+  }
+
   private getBackupFilename(type: "daily" | "weekly" | "monthly", date: Date): string {
     const dateStr = this.formatDate(date);
-    return `${BACKUP_PREFIX}/${type}/backup_${dateStr}.sql.gz`;
+    const timeStr = this.formatTime(date);
+    return `${BACKUP_PREFIX}/${type}/backup_${dateStr}_${timeStr}.sql.gz`;
   }
 
   private log(stage: string, message: string, data?: any): void {
