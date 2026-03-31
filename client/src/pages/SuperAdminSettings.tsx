@@ -948,7 +948,7 @@ export default function SuperAdminSettings() {
                         <div key={backup.key} className="flex items-center justify-between p-2 bg-white rounded border text-sm">
                           <div className="flex items-center gap-2 min-w-0">
                             <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                            <span className="font-mono text-xs">
+                            <span className="font-mono text-xs whitespace-nowrap">
                               {backup.key.split('/').pop()}
                             </span>
                             {backup.url && (
