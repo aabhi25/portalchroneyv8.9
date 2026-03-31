@@ -11,6 +11,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import { createWriteStream } from "fs";
+import { createGunzip } from "zlib";
 import { randomUUID } from "crypto";
 import path from "path";
 
@@ -283,6 +284,89 @@ class R2StorageService {
       };
     } catch (error: any) {
       console.error("[R2 Storage] Gzip header verification failed:", error);
+      return { valid: false, error: error.message };
+    }
+  }
+
+  async verifyGzipIntegrity(key: string): Promise<{ valid: boolean; error?: string }> {
+    await this.ensureInitialized();
+
+    if (!this.isConfigured || !this.client) {
+      return { valid: false, error: "R2 storage not configured" };
+    }
+
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+      });
+
+      const response = await this.client.send(command);
+
+      if (!response.Body) {
+        return { valid: false, error: "No data returned from R2" };
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const gunzip = createGunzip();
+        gunzip.on('error', (err) => reject(err));
+        gunzip.on('finish', () => resolve());
+        (response.Body as Readable).on('error', (err) => reject(err));
+        (response.Body as Readable).pipe(gunzip);
+        gunzip.resume();
+      });
+
+      console.log(`[R2 Storage] Gzip integrity verified (full stream) for: ${key}`);
+      return { valid: true };
+    } catch (error: any) {
+      console.error("[R2 Storage] Gzip integrity verification failed:", error);
+      return { valid: false, error: error.message };
+    }
+  }
+
+  async verifyPgdmpHeader(key: string): Promise<{ valid: boolean; error?: string }> {
+    await this.ensureInitialized();
+
+    if (!this.isConfigured || !this.client) {
+      return { valid: false, error: "R2 storage not configured" };
+    }
+
+    try {
+      const command = new GetObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Range: "bytes=0-4",
+      });
+
+      const response = await this.client.send(command);
+
+      if (!response.Body) {
+        return { valid: false, error: "No data returned from R2" };
+      }
+
+      const chunks: Buffer[] = [];
+      for await (const chunk of response.Body as any) {
+        chunks.push(Buffer.from(chunk));
+      }
+      const header = Buffer.concat(chunks);
+
+      if (header.length < 5) {
+        return { valid: false, error: `Header too short: ${header.length} bytes` };
+      }
+
+      const PGDMP = Buffer.from([0x50, 0x47, 0x44, 0x4d, 0x50]);
+      if (header.slice(0, 5).equals(PGDMP)) {
+        console.log(`[R2 Storage] PGDMP magic verified for: ${key}`);
+        return { valid: true };
+      }
+
+      const got = Array.from(header.slice(0, 5)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      return {
+        valid: false,
+        error: `Invalid PGDMP magic: expected 50 47 44 4d 50, got ${got}`,
+      };
+    } catch (error: any) {
+      console.error("[R2 Storage] PGDMP header verification failed:", error);
       return { valid: false, error: error.message };
     }
   }

@@ -466,8 +466,8 @@ class DatabaseBackupService {
       const backupDuration = streamingResult.duration;
 
       if (filename.endsWith('.sql.gz')) {
-        this.log('VERIFY', 'Verifying uploaded backup integrity (gzip header check)...');
-        const verification = await r2Storage.verifyGzipHeader(filename);
+        this.log('VERIFY', 'Verifying uploaded backup integrity (full gzip decompression test)...');
+        const verification = await r2Storage.verifyGzipIntegrity(filename);
         if (!verification.valid) {
           const errorMsg = `Backup uploaded but failed integrity check: ${verification.error}`;
           this.logError('VERIFY', errorMsg);
@@ -478,9 +478,21 @@ class DatabaseBackupService {
           await this.updateBackupJobFailed(correlationId, errorMsg, errorMsg);
           return result;
         }
-        this.log('VERIFY', 'Backup integrity verified — valid gzip file');
-      } else {
-        this.log('VERIFY', 'Skipping header check for pg_dump custom-format backup (integrity confirmed by pg_dump exit code)');
+        this.log('VERIFY', 'Backup integrity verified — gzip stream fully decompressed without errors');
+      } else if (filename.endsWith('.dump')) {
+        this.log('VERIFY', 'Verifying uploaded backup integrity (PGDMP magic bytes check)...');
+        const verification = await r2Storage.verifyPgdmpHeader(filename);
+        if (!verification.valid) {
+          const errorMsg = `Backup uploaded but failed PGDMP integrity check: ${verification.error}`;
+          this.logError('VERIFY', errorMsg);
+          this.log('VERIFY', 'Deleting corrupted backup from R2...');
+          await r2Storage.deleteFile(filename);
+          const result = { success: false, error: errorMsg };
+          if (jobId) backupJobManager.completeJob(jobId, result);
+          await this.updateBackupJobFailed(correlationId, errorMsg, errorMsg);
+          return result;
+        }
+        this.log('VERIFY', 'Backup integrity verified — valid PGDMP archive');
       }
 
       this.log('COMPLETE', `Streaming backup completed successfully`, {
@@ -1084,6 +1096,26 @@ END$$;
   ): Promise<{ duration: number; verificationReport?: VerificationResult[] }> {
     const startTime = Date.now();
 
+    this.setRestoreProgress('Validating', 2, 8, 10, 'Validating backup archive before restore...');
+    this.log('RESTORE_PG', 'Step 0: Validating backup archive with pg_restore --list (before any DB changes)...');
+    await new Promise<void>((resolve, reject) => {
+      const listStderr: string[] = [];
+      const pgList = spawn('pg_restore', ['--list', dumpFilePath], {
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
+      pgList.stderr.on('data', (chunk: Buffer) => listStderr.push(chunk.toString()));
+      pgList.on('error', (err) => reject(new Error(`pg_restore --list process error: ${err.message}`)));
+      pgList.on('close', (code) => {
+        if (code !== 0) {
+          const errText = listStderr.join('').slice(0, 500);
+          reject(new Error(`Backup archive is invalid or corrupted (pg_restore --list exited ${code}): ${errText}`));
+        } else {
+          resolve();
+        }
+      });
+    });
+    this.log('RESTORE_PG', 'Step 0 passed — backup archive is a valid pg_dump custom-format file');
+
     this.setRestoreProgress('Preparing', 2, 8, 18, 'Getting list of database tables...');
     this.log('RESTORE_PG', 'Step 1: Getting list of tables...');
     const tableListResult = await new Promise<string>((resolve, reject) => {
@@ -1222,6 +1254,20 @@ END$$;
     }
 
     if (pgRestoreExitCode === 1) {
+      const fullStderr = pgRestoreStderr.join('');
+      const archiveFatalPatterns = [
+        'not a valid archive',
+        'invalid archive',
+        'could not read archive',
+        'magic number mismatch',
+        'unexpected end of file',
+        'file does not appear to be a valid archive',
+      ];
+      const fatalMatch = archiveFatalPatterns.find(p => fullStderr.toLowerCase().includes(p));
+      if (fatalMatch) {
+        const errorSample = fullStderr.slice(-1000);
+        throw new Error(`pg_restore failed with archive-level error ("${fatalMatch}"): ${errorSample}`);
+      }
       this.log('RESTORE_PG', `pg_restore completed with warnings/skipped tables (exit 1)`, {
         skippedTables,
         errorCount: tableErrors.size,
