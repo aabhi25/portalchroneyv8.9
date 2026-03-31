@@ -29,6 +29,7 @@ interface BackupFile {
   size: number;
   lastModified: Date;
   type: "daily" | "weekly" | "monthly" | "manual";
+  url: string;
 }
 
 export interface VerificationResult {
@@ -614,6 +615,7 @@ class DatabaseBackupService {
           size: f.size,
           lastModified: f.lastModified,
           type,
+          url: r2Storage.getPublicUrl(f.key),
         };
       })
       .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());

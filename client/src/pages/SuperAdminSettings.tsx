@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Settings2, Lock, AlertCircle, Sparkles, Database, Download, Brain, CheckCircle2, XCircle, Loader2, RefreshCw, Cloud, Trash2, Calendar, HardDrive, ChevronRight, ArrowDownToLine, Upload } from "lucide-react";
+import { Settings2, Lock, AlertCircle, Sparkles, Database, Download, Brain, CheckCircle2, XCircle, Loader2, RefreshCw, Cloud, Trash2, Calendar, HardDrive, ChevronRight, ArrowDownToLine, Upload, Copy, Check, ExternalLink } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -40,6 +40,7 @@ interface BackupFile {
   size: number;
   lastModified: string;
   type: "daily" | "weekly" | "monthly" | "manual";
+  url?: string;
 }
 
 interface BackupStats {
@@ -356,6 +357,9 @@ export default function SuperAdminSettings() {
       });
     },
   });
+
+  // Copy-to-clipboard state for R2 URLs
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Restore backup mutation
   const [restoringBackup, setRestoringBackup] = useState<string | null>(null);
@@ -942,13 +946,48 @@ export default function SuperAdminSettings() {
                     <div className="space-y-2">
                       {backups.slice(0, 10).map((backup) => (
                         <div key={backup.key} className="flex items-center justify-between p-2 bg-white rounded border text-sm">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="w-3 h-3 text-gray-400" />
-                            <span className="font-mono text-xs truncate max-w-[200px]">
-                              {backup.key.split('/').pop()}
-                            </span>
+                          <div className="flex flex-col gap-0.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                              <span className="font-mono text-xs truncate max-w-[200px]">
+                                {backup.key.split('/').pop()}
+                              </span>
+                            </div>
+                            {backup.url && (
+                              <div className="flex items-center gap-1 pl-5">
+                                <span className="font-mono text-xs text-gray-400 truncate max-w-[180px]" title={backup.url}>
+                                  {backup.url.replace(/^https?:\/\/[^/]+\//, '').split('/').pop()}
+                                </span>
+                                <button
+                                  className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                                  title="Copy R2 URL"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigator.clipboard.writeText(backup.url ?? '');
+                                    setCopiedKey(backup.key);
+                                    setTimeout(() => setCopiedKey(null), 1500);
+                                  }}
+                                >
+                                  {copiedKey === backup.key ? (
+                                    <Check className="w-3 h-3 text-green-500" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                                <a
+                                  href={backup.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                                  title="Open in new tab"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-shrink-0">
                             <Badge variant="outline" className={
                               backup.type === 'monthly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                               backup.type === 'weekly' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
