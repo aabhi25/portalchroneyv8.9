@@ -154,8 +154,12 @@ class DatabaseBackupService {
   }
 
   private getBackupType(date: Date): "daily" | "weekly" | "monthly" {
-    const dayOfMonth = date.getDate();
-    const dayOfWeek = date.getDay();
+    // Use IST (UTC+5:30) to determine type so the 4 AM IST scheduler
+    // classifies monthly/weekly correctly (server runs in UTC).
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(date.getTime() + IST_OFFSET_MS);
+    const dayOfMonth = istDate.getUTCDate();
+    const dayOfWeek = istDate.getUTCDay();
 
     if (dayOfMonth === 1) {
       return "monthly";
