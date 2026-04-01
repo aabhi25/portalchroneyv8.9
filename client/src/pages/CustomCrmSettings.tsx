@@ -52,6 +52,7 @@ interface StoreCredential {
   city: string | null;
   storeId: number | null;
   sid: string;
+  hasSecret?: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -417,7 +418,7 @@ export default function CustomCrmSettings() {
       setStoreStoreId(store.storeId ? String(store.storeId) : '');
       setStoreSid(store.sid);
       setStoreSecret('');
-      setExistingSecretSet(!!(store as any).hasSecret);
+      setExistingSecretSet(!!store.hasSecret);
     } else {
       setEditingStore(null);
       setStoreDealerName('');
@@ -1220,7 +1221,7 @@ export default function CustomCrmSettings() {
                   type={showStoreSecret ? 'text' : 'password'}
                   placeholder={
                     editingStore
-                      ? (existingSecretSet && !storeSecret ? '••••••••••••' : 'Leave blank to keep existing')
+                      ? (existingSecretSet && !storeSecret ? '••••••••••••' : 'Enter secret key')
                       : 'Enter secret key'
                   }
                   value={storeSecret}
