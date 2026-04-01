@@ -113,6 +113,7 @@ export default function CustomCrmSettings() {
   const [storeStoreId, setStoreStoreId] = useState('');
   const [storeSid, setStoreSid] = useState('');
   const [storeSecret, setStoreSecret] = useState('');
+  const [existingSecretSet, setExistingSecretSet] = useState(false);
   const [showStoreSecret, setShowStoreSecret] = useState(false);
   const [importingStores, setImportingStores] = useState(false);
   const [storeSearch, setStoreSearch] = useState('');
@@ -416,6 +417,7 @@ export default function CustomCrmSettings() {
       setStoreStoreId(store.storeId ? String(store.storeId) : '');
       setStoreSid(store.sid);
       setStoreSecret('');
+      setExistingSecretSet(!!(store as any).hasSecret);
     } else {
       setEditingStore(null);
       setStoreDealerName('');
@@ -424,6 +426,7 @@ export default function CustomCrmSettings() {
       setStoreStoreId('');
       setStoreSid('');
       setStoreSecret('');
+      setExistingSecretSet(false);
     }
     setShowStoreSecret(false);
     setStoreDialogOpen(true);
@@ -1215,7 +1218,11 @@ export default function CustomCrmSettings() {
               <div className="relative">
                 <Input
                   type={showStoreSecret ? 'text' : 'password'}
-                  placeholder={editingStore ? 'Leave blank to keep existing' : 'Enter secret key'}
+                  placeholder={
+                    editingStore
+                      ? (existingSecretSet && !storeSecret ? '••••••••••••' : 'Leave blank to keep existing')
+                      : 'Enter secret key'
+                  }
                   value={storeSecret}
                   onChange={e => setStoreSecret(e.target.value)}
                 />
@@ -1228,7 +1235,11 @@ export default function CustomCrmSettings() {
                   {showStoreSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">Used for HMAC checksum generation. Encrypted at rest.</p>
+              {existingSecretSet && !storeSecret && editingStore ? (
+                <p className="text-xs text-green-600">Secret key is configured. Leave blank to keep existing.</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Used for HMAC checksum generation. Encrypted at rest.</p>
+              )}
             </div>
           </div>
           <DialogFooter>

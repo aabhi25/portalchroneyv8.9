@@ -16270,6 +16270,7 @@ Important:
           city: crmStoreCredentials.city,
           storeId: crmStoreCredentials.storeId,
           sid: crmStoreCredentials.sid,
+          secret: crmStoreCredentials.secret,
           isActive: crmStoreCredentials.isActive,
           createdAt: crmStoreCredentials.createdAt,
           updatedAt: crmStoreCredentials.updatedAt,
@@ -16278,7 +16279,10 @@ Important:
         .where(eq(crmStoreCredentials.businessAccountId, businessAccountId))
         .orderBy(crmStoreCredentials.dealerName, crmStoreCredentials.storeName);
 
-      res.json(credentials);
+      res.json(credentials.map(({ secret, ...rest }) => ({
+        ...rest,
+        hasSecret: !!(secret && secret.length > 0),
+      })));
     } catch (error: any) {
       console.error("[Store Credentials] Get error:", error);
       res.status(500).json({ error: error.message });
