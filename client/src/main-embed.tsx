@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import EmbedChat from "./pages/EmbedChat";
 import "./index.css";
+import 'katex/dist/katex.min.css';
 
 function EmbedApp() {
   return (
