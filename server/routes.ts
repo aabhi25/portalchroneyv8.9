@@ -15567,6 +15567,36 @@ Important:
     res.json({ success: true, message: 'Callback received' });
   });
 
+  /** Returns true if the given IPv4 or IPv6 address is private/loopback/reserved. */
+  function isPrivateIpAddress(ip: string): boolean {
+    // IPv4 private/loopback/link-local/reserved ranges
+    const ipv4Private = [
+      /^127\./,            // loopback
+      /^0\.0\.0\.0$/,      // unspecified
+      /^10\./,             // RFC 1918
+      /^172\.(1[6-9]|2\d|3[01])\./,  // RFC 1918
+      /^192\.168\./,       // RFC 1918
+      /^169\.254\./,       // link-local (APIPA)
+      /^100\.(6[4-9]|[7-9]\d|1([01]\d|2[0-7]))\./,  // RFC 6598 shared
+      /^192\.0\.0\./,      // IETF Protocol
+      /^192\.0\.2\./,      // TEST-NET-1
+      /^198\.51\.100\./,   // TEST-NET-2
+      /^203\.0\.113\./,    // TEST-NET-3
+      /^240\./,            // reserved
+      /^255\.255\.255\.255$/,
+    ];
+    // IPv6 private/loopback/ULA/link-local
+    const ipv6Private = [
+      /^::1$/,             // loopback
+      /^::/,               // unspecified
+      /^fc[0-9a-f]{2}:/i,  // ULA fc00::/7
+      /^fd[0-9a-f]{2}:/i,  // ULA fd00::/8
+      /^fe[89ab][0-9a-f]:/i, // link-local fe80::/10
+      /^ff/i,              // multicast
+    ];
+    return [...ipv4Private, ...ipv6Private].some(p => p.test(ip));
+  }
+
   app.post("/api/custom-crm/test-relay", requireAuth, requireBusinessAccount, async (req, res) => {
     try {
       const { relayUrl } = req.body;
@@ -15574,7 +15604,7 @@ Important:
         return res.status(400).json({ success: false, message: "relayUrl is required" });
       }
 
-      // SSRF guard: only allow http/https, block private/loopback addresses
+      // SSRF guard step 1: parse and validate scheme
       let parsed: URL;
       try {
         parsed = new URL(relayUrl.replace(/\/relay\/?$/, '').replace(/\/$/, ''));
@@ -15584,21 +15614,31 @@ Important:
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
         return res.status(400).json({ success: false, message: "Relay URL must use http or https" });
       }
+
+      // SSRF guard step 2: check literal hostname/IP first (fast path)
       const hostname = parsed.hostname.toLowerCase();
-      const privatePatterns = [
-        /^localhost$/,
-        /^127\./,
-        /^0\.0\.0\.0$/,
-        /^10\./,
-        /^172\.(1[6-9]|2\d|3[01])\./,
-        /^192\.168\./,
-        /^169\.254\./,
-        /^::1$/,
-        /^fc00:/,
-        /^fe80:/,
-      ];
-      if (privatePatterns.some(p => p.test(hostname))) {
-        return res.status(400).json({ success: false, message: "Relay URL must point to a public IP address, not a private/loopback address" });
+      if (hostname === 'localhost' || isPrivateIpAddress(hostname)) {
+        return res.status(400).json({ success: false, message: "Relay URL must point to a public address, not a private/loopback address" });
+      }
+
+      // SSRF guard step 3: DNS-resolve all A/AAAA records and check every resolved IP
+      // This prevents DNS rebinding attacks where a public-looking hostname resolves to a private IP
+      const { promises: dnsPromises } = await import('dns');
+      let resolvedAddresses: string[] = [];
+      try {
+        const [v4, v6] = await Promise.allSettled([
+          dnsPromises.resolve4(hostname),
+          dnsPromises.resolve6(hostname),
+        ]);
+        if (v4.status === 'fulfilled') resolvedAddresses.push(...v4.value);
+        if (v6.status === 'fulfilled') resolvedAddresses.push(...v6.value);
+      } catch {
+        // If DNS fails entirely, let fetch fail naturally below
+      }
+      for (const addr of resolvedAddresses) {
+        if (isPrivateIpAddress(addr)) {
+          return res.status(400).json({ success: false, message: `Relay hostname resolves to a private/internal IP (${addr}). Use a public IP address.` });
+        }
       }
 
       const healthUrl = `${parsed.origin}/health`;
