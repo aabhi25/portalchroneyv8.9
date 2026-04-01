@@ -15,6 +15,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { convertLatexDelimiters } from '@/lib/convertLatexDelimiters';
 
 interface FormStepData {
   stepId: string;
@@ -828,7 +829,7 @@ export default function Home() {
                                   ),
                                 }}
                               >
-                                {msg.content}
+                                {convertLatexDelimiters(msg.content)}
                               </ReactMarkdown>
                             </div>
                           ) : (

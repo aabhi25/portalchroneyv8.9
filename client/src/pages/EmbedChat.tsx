@@ -16,6 +16,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { convertLatexDelimiters } from '@/lib/convertLatexDelimiters';
 
 // Lazy-loaded components for optional features (reduces initial bundle)
 const VoiceMode = lazy(() => import("@/components/VoiceMode").then(m => ({ default: m.VoiceMode })));
@@ -3091,7 +3092,7 @@ export default function EmbedChat() {
                         },
                       }}
                     >
-                      {msg.content}
+                      {convertLatexDelimiters(msg.content)}
                     </ReactMarkdown>
                   </div>
                 ) : msg.role === 'user' && msg.content.startsWith('[RESUME_UPLOAD]') ? (
