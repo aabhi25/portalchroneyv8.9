@@ -13,6 +13,8 @@ import { FormStep } from "@/components/FormStep";
 import type { MeResponseDto } from "@shared/dto";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 interface FormStepData {
   stepId: string;
@@ -805,7 +807,8 @@ export default function Home() {
                           {msg.role === 'assistant' ? (
                             <div className="text-gray-900 leading-relaxed prose prose-sm max-w-none prose-p:mb-2 prose-p:last:mb-0 font-['Poppins']">
                               <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
+                                remarkPlugins={[remarkGfm, remarkMath]}
+                                rehypePlugins={[rehypeKatex]}
                                 components={{
                                   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                                   ul: ({ children }) => <ul className="mb-2 pl-4 list-disc">{children}</ul>,

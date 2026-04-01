@@ -14,6 +14,8 @@ import { QuickBrowseButtons } from "@/components/QuickBrowseButtons";
 import { ResumeUploadProgress } from "@/components/ResumeUploadProgress";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
 // Lazy-loaded components for optional features (reduces initial bundle)
 const VoiceMode = lazy(() => import("@/components/VoiceMode").then(m => ({ default: m.VoiceMode })));
@@ -3052,7 +3054,8 @@ export default function EmbedChat() {
                 ) : msg.role === 'assistant' ? (
                   <div className="text-sm font-medium leading-relaxed prose prose-sm max-w-none prose-p:mb-2 prose-p:last:mb-0">
                     <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
                       components={{
                         p: ({ children }) => <p className="mb-2 last:mb-0 font-medium">{children}</p>,
                         ul: ({ children }) => <ul className="mb-2 pl-4 list-disc">{children}</ul>,
