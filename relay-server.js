@@ -41,11 +41,19 @@
  *      Value: http://<ec2-public-ip>:3000
  *
  * ENVIRONMENT VARIABLES
- *   RELAY_SECRET  — Required. A shared secret between this relay and AI
- *                   Chroney. If set, every request must carry the header:
+ *   RELAY_SECRET  — Required. A shared secret set on THIS relay server.
+ *                   Every request from AI Chroney must carry the header:
  *                     Authorization: Bearer <RELAY_SECRET>
- *                   Set the same value in your server environment as
- *                   CUSTOM_CRM_RELAY_SECRET (AI Chroney will send it).
+ *
+ *   CUSTOM_CRM_RELAY_SECRET — Set this SAME value in your main AI Chroney
+ *                   app environment (Replit Secrets). AI Chroney automatically
+ *                   reads it and sends it as the Authorization header when
+ *                   calling the relay. The two values must match exactly.
+ *
+ *                   To set it in Replit: Secrets → Add secret:
+ *                     Key:   CUSTOM_CRM_RELAY_SECRET
+ *                     Value: (same random string as your relay's RELAY_SECRET)
+ *
  *   PORT          — Default 3000. The port to listen on.
  *
  * SECURITY NOTES
