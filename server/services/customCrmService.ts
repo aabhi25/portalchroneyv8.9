@@ -367,11 +367,40 @@ export async function syncLead(
     }
 
     let response: Response;
+    const method = settings.httpMethod || 'POST';
 
-    if (settings.contentType === 'json') {
+    if (settings.relayUrl) {
+      // Route through India relay server instead of calling CRM directly
+      const relayEndpoint = settings.relayUrl.replace(/\/$/, '') + '/relay';
+      console.log(`[CustomCRM] Routing via relay: ${relayEndpoint} → ${url}`);
+
+      let bodyForRelay: string;
+      let contentTypeForRelay: string;
+
+      if (settings.contentType === 'json') {
+        bodyForRelay = JSON.stringify(payload);
+        contentTypeForRelay = 'application/json';
+      } else {
+        // Encode form-data payload as URL-encoded string for relay forwarding
+        bodyForRelay = new URLSearchParams(payload).toString();
+        contentTypeForRelay = 'application/x-www-form-urlencoded';
+      }
+
+      response = await fetch(relayEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUrl: url,
+          method,
+          contentType: contentTypeForRelay,
+          headers,
+          body: bodyForRelay,
+        }),
+      });
+    } else if (settings.contentType === 'json') {
       headers['Content-Type'] = 'application/json';
       response = await fetch(url, {
-        method: settings.httpMethod || 'POST',
+        method,
         headers,
         body: JSON.stringify(payload),
       });
@@ -381,7 +410,7 @@ export async function syncLead(
         formData.append(key, value);
       }
       response = await fetch(url, {
-        method: settings.httpMethod || 'POST',
+        method,
         headers,
         body: formData,
       });

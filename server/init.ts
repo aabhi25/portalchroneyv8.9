@@ -85,6 +85,12 @@ export async function initializeDatabase() {
       console.error('[INIT] Error adding callback_url column to custom_crm_settings:', err);
     }
 
+    try {
+      await db.execute(sql`ALTER TABLE custom_crm_settings ADD COLUMN IF NOT EXISTS relay_url TEXT`);
+    } catch (err) {
+      console.error('[INIT] Error adding relay_url column to custom_crm_settings:', err);
+    }
+
     // Resume any interrupted Vision Warehouse syncs
     try {
       await visionWarehouseSyncService.resumeInterruptedSyncs();

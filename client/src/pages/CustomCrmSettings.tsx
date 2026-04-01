@@ -89,6 +89,7 @@ export default function CustomCrmSettings() {
   const [authHeaderName, setAuthHeaderName] = useState('');
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [callbackUrl, setCallbackUrl] = useState('');
+  const [relayUrl, setRelayUrl] = useState('');
   const [enabled, setEnabled] = useState(false);
   const [hasCredentials, setHasCredentials] = useState(false);
   const [showAuthKey, setShowAuthKey] = useState(false);
@@ -147,6 +148,7 @@ export default function CustomCrmSettings() {
         setAuthHeaderName(data.authHeaderName || '');
         setAutoSyncEnabled(data.autoSyncEnabled || false);
         setCallbackUrl(data.callbackUrl || '');
+        setRelayUrl(data.relayUrl || '');
         setEnabled(data.enabled || false);
         setHasCredentials(!!data.hasCredentials);
       }
@@ -217,6 +219,7 @@ export default function CustomCrmSettings() {
         autoSyncEnabled,
         enabled,
         callbackUrl: authType === 'checksum_caprion' ? callbackUrl : null,
+        relayUrl: relayUrl || null,
       };
       if (authKeyChanged && authKey) {
         payload.authKey = authKey;
@@ -290,7 +293,7 @@ export default function CustomCrmSettings() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          name, apiBaseUrl, apiEndpoint, httpMethod, contentType, authType, authHeaderName, enabled, autoSyncEnabled: val, callbackUrl: authType === 'checksum_caprion' ? callbackUrl : null,
+          name, apiBaseUrl, apiEndpoint, httpMethod, contentType, authType, authHeaderName, enabled, autoSyncEnabled: val, callbackUrl: authType === 'checksum_caprion' ? callbackUrl : null, relayUrl: relayUrl || null,
         }),
       });
       toast({ title: val ? 'Auto-sync enabled' : 'Auto-sync disabled' });
@@ -819,6 +822,18 @@ export default function CustomCrmSettings() {
               <div className="space-y-2">
                 <Label>API Endpoint Path</Label>
                 <Input placeholder="e.g. /api/apiintegration/v4/CreateLead" value={apiEndpoint} onChange={e => setApiEndpoint(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Relay URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <Input
+                  placeholder="e.g. http://13.233.12.45:3000"
+                  value={relayUrl}
+                  onChange={e => setRelayUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Route outbound lead sync requests through a proxy server — useful when the CRM only accepts requests from Indian IP addresses. Leave blank to call the CRM directly.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

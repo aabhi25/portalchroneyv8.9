@@ -15494,6 +15494,7 @@ Important:
         authHeaderName: existing.authHeaderName || "",
         autoSyncEnabled: existing.autoSyncEnabled,
         callbackUrl: existing.callbackUrl || "",
+        relayUrl: existing.relayUrl || "",
         hasCredentials: !!existing.authKey,
       });
     } catch (error: any) {
@@ -15506,7 +15507,7 @@ Important:
     try {
       const user = req.user!;
       const businessAccountId = user.businessAccountId!;
-      const { enabled, name, apiBaseUrl, apiEndpoint, httpMethod, contentType, authType, authKey, authHeaderName, autoSyncEnabled, callbackUrl } = req.body;
+      const { enabled, name, apiBaseUrl, apiEndpoint, httpMethod, contentType, authType, authKey, authHeaderName, autoSyncEnabled, callbackUrl, relayUrl } = req.body;
 
       const [existing] = await db
         .select()
@@ -15527,6 +15528,7 @@ Important:
         authHeaderName: authHeaderName || null,
         autoSyncEnabled: !!autoSyncEnabled,
         callbackUrl: callbackUrl || null,
+        relayUrl: relayUrl || null,
         updatedAt: new Date(),
       };
 

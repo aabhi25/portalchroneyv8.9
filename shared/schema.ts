@@ -3249,6 +3249,7 @@ export const customCrmSettings = pgTable("custom_crm_settings", {
   authHeaderName: text("auth_header_name"),
   autoSyncEnabled: boolean("auto_sync_enabled").notNull().default(false),
   callbackUrl: text("callback_url"),
+  relayUrl: text("relay_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
