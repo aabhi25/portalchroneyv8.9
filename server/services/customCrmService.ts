@@ -371,7 +371,9 @@ export async function syncLead(
 
     if (settings.relayUrl) {
       // Route through India relay server instead of calling CRM directly
-      const relayEndpoint = settings.relayUrl.replace(/\/$/, '') + '/relay';
+      // Strip trailing slash and any accidental /relay suffix before appending /relay
+      const relayBase = settings.relayUrl.replace(/\/relay\/?$/, '').replace(/\/$/, '');
+      const relayEndpoint = relayBase + '/relay';
       console.log(`[CustomCRM] Routing via relay: ${relayEndpoint} → ${url}`);
 
       const relayHeaders: Record<string, string> = { 'Content-Type': 'application/json' };

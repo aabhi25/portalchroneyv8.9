@@ -22,9 +22,11 @@
  * 3. Copy this file to the server:
  *      scp relay-server.js ubuntu@<ec2-ip>:~/relay-server.js
  *
- * 4. Install the only dependency:
- *      npm install express node-fetch
- *    (or use global fetch if Node >= 18, no install needed)
+ * 4. Install the only dependency (express):
+ *      npm init -y && npm install express
+ *    NOTE: This script requires Node.js 18+ (uses built-in fetch and FormData).
+ *    The nodesource install in step 2 installs Node 20, which satisfies this.
+ *    Do NOT install node-fetch or form-data packages — they are not used here.
  *
  * 5. Set environment variables and start:
  *      RELAY_SECRET=your-strong-random-secret node relay-server.js
