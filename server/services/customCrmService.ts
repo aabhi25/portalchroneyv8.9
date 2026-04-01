@@ -387,12 +387,16 @@ export async function syncLead(
       };
 
       if (settings.contentType === 'json') {
-        // Send serialised JSON body — relay will forward as application/json
+        // JSON path: send serialised body string — relay forwards as application/json
         relayBody.body = JSON.stringify(payload);
         relayBody.contentType = 'application/json';
       } else {
-        // Send raw key-value pairs — relay will reconstruct multipart FormData
-        // preserving the same wire format as the direct fetch path
+        // Form-data path: send raw key-value object as `fields` so the relay can
+        // reconstruct a proper multipart/form-data request using the FormData API.
+        // This is intentionally different from `body` (a pre-serialised string) and
+        // preserves the exact wire format that Caprion and other CRMs expect —
+        // the relay sets the multipart boundary automatically, identical to the
+        // direct-fetch path (relay-server.js handles contentType === 'form-data').
         relayBody.fields = payload;
         relayBody.contentType = 'form-data';
       }

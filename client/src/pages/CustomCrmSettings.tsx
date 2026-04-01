@@ -832,7 +832,7 @@ export default function CustomCrmSettings() {
                   onChange={e => setRelayUrl(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Route outbound lead sync requests through a proxy server — useful when the CRM only accepts requests from Indian IP addresses. Leave blank to call the CRM directly.
+                  Route outbound lead sync requests through a proxy server — useful when the CRM only accepts requests from Indian IP addresses. Enter the base URL of your relay server (e.g. <code>http://13.233.12.45:3000</code>); the app will call <code>/relay</code> on it automatically. Leave blank to call the CRM directly.
                 </p>
               </div>
 

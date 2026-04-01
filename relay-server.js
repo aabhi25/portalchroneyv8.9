@@ -149,11 +149,20 @@ app.post('/relay', async (req, res) => {
   }
 });
 
+// Enforce RELAY_SECRET on startup. Set ALLOW_INSECURE_RELAY=true only for local testing.
+if (!RELAY_SECRET) {
+  if (process.env.ALLOW_INSECURE_RELAY === 'true') {
+    console.warn('[Relay] WARNING: RELAY_SECRET is not set and ALLOW_INSECURE_RELAY=true — relay is open to anyone. DO NOT use this in production!');
+  } else {
+    console.error('[Relay] FATAL: RELAY_SECRET environment variable is required. Set it to a strong random string (32+ chars).');
+    console.error('[Relay] To bypass for local testing only: ALLOW_INSECURE_RELAY=true RELAY_SECRET="" node relay-server.js');
+    process.exit(1);
+  }
+}
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[Relay] AI Chroney India Relay running on port ${PORT}`);
-  if (!RELAY_SECRET) {
-    console.warn('[Relay] WARNING: RELAY_SECRET is not set — relay is open to anyone. Set it in production!');
-  } else {
-    console.log('[Relay] RELAY_SECRET is configured — requests require Authorization header.');
+  if (RELAY_SECRET) {
+    console.log('[Relay] RELAY_SECRET is configured — requests require Authorization: Bearer header.');
   }
 });
