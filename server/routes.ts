@@ -15573,8 +15573,35 @@ Important:
       if (!relayUrl || typeof relayUrl !== 'string') {
         return res.status(400).json({ success: false, message: "relayUrl is required" });
       }
-      const base = relayUrl.replace(/\/relay\/?$/, '').replace(/\/$/, '');
-      const healthUrl = `${base}/health`;
+
+      // SSRF guard: only allow http/https, block private/loopback addresses
+      let parsed: URL;
+      try {
+        parsed = new URL(relayUrl.replace(/\/relay\/?$/, '').replace(/\/$/, ''));
+      } catch {
+        return res.status(400).json({ success: false, message: "Invalid relay URL — must be a valid URL (e.g. http://13.233.12.45:3000)" });
+      }
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return res.status(400).json({ success: false, message: "Relay URL must use http or https" });
+      }
+      const hostname = parsed.hostname.toLowerCase();
+      const privatePatterns = [
+        /^localhost$/,
+        /^127\./,
+        /^0\.0\.0\.0$/,
+        /^10\./,
+        /^172\.(1[6-9]|2\d|3[01])\./,
+        /^192\.168\./,
+        /^169\.254\./,
+        /^::1$/,
+        /^fc00:/,
+        /^fe80:/,
+      ];
+      if (privatePatterns.some(p => p.test(hostname))) {
+        return res.status(400).json({ success: false, message: "Relay URL must point to a public IP address, not a private/loopback address" });
+      }
+
+      const healthUrl = `${parsed.origin}/health`;
       const secret = process.env.CUSTOM_CRM_RELAY_SECRET;
       const headers: Record<string, string> = { 'Accept': 'application/json' };
       if (secret) headers['Authorization'] = `Bearer ${secret}`;

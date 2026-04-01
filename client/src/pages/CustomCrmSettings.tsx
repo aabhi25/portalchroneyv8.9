@@ -882,25 +882,6 @@ export default function CustomCrmSettings() {
                 <Switch checked={enabled} onCheckedChange={setEnabled} />
               </div>
 
-              {connectionStatus && (
-                <Alert variant={connectionStatus === 'success' ? 'default' : 'destructive'} className={connectionStatus === 'success' ? 'border-green-200 bg-green-50 dark:bg-green-950' : ''}>
-                  <AlertDescription className="flex items-center gap-2">
-                    {connectionStatus === 'success' ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4" />}
-                    {connectionMessage}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <Button variant="outline" onClick={handleTestConnection} disabled={testing || !apiBaseUrl}>
-                  {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  Test Connection
-                </Button>
-                <Button onClick={handleSaveSettings} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  Save Settings
-                </Button>
-              </div>
             </CardContent>
           </Card>
 
@@ -940,14 +921,28 @@ export default function CustomCrmSettings() {
                   </Alert>
                 )}
               </div>
-              <div className="flex gap-3 pt-1">
-                <Button onClick={handleSaveSettings} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                  Save Settings
-                </Button>
-              </div>
             </CardContent>
           </Card>
+
+          {connectionStatus && (
+            <Alert variant={connectionStatus === 'success' ? 'default' : 'destructive'} className={connectionStatus === 'success' ? 'border-green-200 bg-green-50 dark:bg-green-950' : ''}>
+              <AlertDescription className="flex items-center gap-2">
+                {connectionStatus === 'success' ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4" />}
+                {connectionMessage}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleTestConnection} disabled={testing || !apiBaseUrl}>
+              {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Test Connection
+            </Button>
+            <Button onClick={handleSaveSettings} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Save Settings
+            </Button>
+          </div>
         </div>
       )}
 
