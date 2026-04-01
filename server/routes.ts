@@ -15567,6 +15567,35 @@ Important:
     res.json({ success: true, message: 'Callback received' });
   });
 
+  app.post("/api/custom-crm/test-relay", requireAuth, requireBusinessAccount, async (req, res) => {
+    try {
+      const { relayUrl } = req.body;
+      if (!relayUrl || typeof relayUrl !== 'string') {
+        return res.status(400).json({ success: false, message: "relayUrl is required" });
+      }
+      const base = relayUrl.replace(/\/relay\/?$/, '').replace(/\/$/, '');
+      const healthUrl = `${base}/health`;
+      const secret = process.env.CUSTOM_CRM_RELAY_SECRET;
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      if (secret) headers['Authorization'] = `Bearer ${secret}`;
+      const start = Date.now();
+      let response: Response;
+      try {
+        response = await fetch(healthUrl, { method: 'GET', headers, signal: AbortSignal.timeout(8000) });
+      } catch (err: any) {
+        return res.json({ success: false, message: `Could not reach relay: ${err.message}`, responseTimeMs: Date.now() - start });
+      }
+      const responseTimeMs = Date.now() - start;
+      if (response.ok) {
+        return res.json({ success: true, message: `Relay is reachable (${response.status} OK, ${responseTimeMs}ms)`, responseTimeMs });
+      }
+      return res.json({ success: false, message: `Relay returned HTTP ${response.status} from ${healthUrl}`, responseTimeMs });
+    } catch (error: any) {
+      console.error("[Custom CRM] Test relay error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   app.post("/api/custom-crm/test-connection", requireAuth, requireBusinessAccount, async (req, res) => {
     try {
       const user = req.user!;

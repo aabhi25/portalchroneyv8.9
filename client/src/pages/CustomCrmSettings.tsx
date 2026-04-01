@@ -90,6 +90,9 @@ export default function CustomCrmSettings() {
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
   const [callbackUrl, setCallbackUrl] = useState('');
   const [relayUrl, setRelayUrl] = useState('');
+  const [relayTesting, setRelayTesting] = useState(false);
+  const [relayTestStatus, setRelayTestStatus] = useState<'success' | 'error' | null>(null);
+  const [relayTestMessage, setRelayTestMessage] = useState('');
   const [enabled, setEnabled] = useState(false);
   const [hasCredentials, setHasCredentials] = useState(false);
   const [showAuthKey, setShowAuthKey] = useState(false);
@@ -282,6 +285,28 @@ export default function CustomCrmSettings() {
       setConnectionMessage('Network error');
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleTestRelay = async () => {
+    setRelayTesting(true);
+    setRelayTestStatus(null);
+    setRelayTestMessage('');
+    try {
+      const res = await fetch('/api/custom-crm/test-relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ relayUrl }),
+      });
+      const data = await res.json();
+      setRelayTestStatus(data.success ? 'success' : 'error');
+      setRelayTestMessage(data.message || (data.success ? 'Relay reachable' : 'Relay unreachable'));
+    } catch {
+      setRelayTestStatus('error');
+      setRelayTestMessage('Network error — could not reach relay');
+    } finally {
+      setRelayTesting(false);
     }
   };
 
@@ -824,18 +849,6 @@ export default function CustomCrmSettings() {
                 <Input placeholder="e.g. /api/apiintegration/v4/CreateLead" value={apiEndpoint} onChange={e => setApiEndpoint(e.target.value)} />
               </div>
 
-              <div className="space-y-2">
-                <Label>Relay URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                <Input
-                  placeholder="e.g. http://13.233.12.45:3000"
-                  value={relayUrl}
-                  onChange={e => setRelayUrl(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Route outbound lead sync requests through a proxy server — useful when the CRM only accepts requests from Indian IP addresses. Enter the base URL of your relay server (e.g. <code>http://13.233.12.45:3000</code>); the app will call <code>/relay</code> on it automatically. Leave blank to call the CRM directly.
-                </p>
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>HTTP Method</Label>
@@ -883,6 +896,51 @@ export default function CustomCrmSettings() {
                   {testing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                   Test Connection
                 </Button>
+                <Button onClick={handleSaveSettings} disabled={saving}>
+                  {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Save Settings
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Relay Server</CardTitle>
+              <CardDescription>Route outbound lead sync requests through an India-based proxy when your CRM only accepts requests from Indian IP addresses. Leave blank to call the CRM directly.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Relay URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1"
+                    placeholder="e.g. http://13.233.12.45:3000"
+                    value={relayUrl}
+                    onChange={e => { setRelayUrl(e.target.value); setRelayTestStatus(null); }}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={handleTestRelay}
+                    disabled={relayTesting || !relayUrl.trim()}
+                  >
+                    {relayTesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Test Relay
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Enter the base URL of your relay server (e.g. <code>http://13.233.12.45:3000</code>); the app will call <code>/relay</code> on it automatically.
+                </p>
+                {relayTestStatus && (
+                  <Alert variant={relayTestStatus === 'success' ? 'default' : 'destructive'} className={relayTestStatus === 'success' ? 'border-green-200 bg-green-50 dark:bg-green-950' : ''}>
+                    <AlertDescription className="flex items-center gap-2">
+                      {relayTestStatus === 'success' ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <XCircle className="h-4 w-4" />}
+                      {relayTestMessage}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+              <div className="flex gap-3 pt-1">
                 <Button onClick={handleSaveSettings} disabled={saving}>
                   {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                   Save Settings
