@@ -77,14 +77,14 @@ app.post('/relay', async (req, res) => {
       }
     }
 
-    const { targetUrl, method, contentType, headers: extraHeaders, body } = req.body;
+    const { targetUrl, method, contentType, headers: extraHeaders, body, fields } = req.body;
 
     // Validate required fields
     if (!targetUrl || typeof targetUrl !== 'string') {
       return res.status(400).json({ error: 'Missing targetUrl' });
     }
-    if (!body && body !== '') {
-      return res.status(400).json({ error: 'Missing body' });
+    if (!body && !fields) {
+      return res.status(400).json({ error: 'Missing body or fields' });
     }
 
     // Block private/local addresses for security
@@ -102,17 +102,34 @@ app.post('/relay', async (req, res) => {
       return res.status(400).json({ error: 'Private/internal addresses not allowed' });
     }
 
-    const forwardHeaders = {
-      'Content-Type': contentType || 'application/x-www-form-urlencoded',
-      ...(extraHeaders || {}),
-    };
+    console.log(`[Relay] Forwarding ${method || 'POST'} → ${targetUrl} (${contentType})`);
 
-    console.log(`[Relay] Forwarding ${method || 'POST'} → ${targetUrl}`);
+    // Reconstruct the upstream request body matching the original content type
+    let upstreamBody;
+    const upstreamHeaders = { ...(extraHeaders || {}) };
+
+    if (contentType === 'form-data' && fields && typeof fields === 'object') {
+      // Rebuild multipart/form-data — same as direct path using FormData
+      // This preserves the exact wire format Caprion expects
+      const formData = new FormData();
+      for (const [k, v] of Object.entries(fields)) {
+        formData.append(k, String(v));
+      }
+      upstreamBody = formData;
+      // Do NOT set Content-Type — fetch sets it with the correct boundary automatically
+    } else if (contentType === 'application/json') {
+      upstreamBody = body;
+      upstreamHeaders['Content-Type'] = 'application/json';
+    } else {
+      // Fallback: forward body string as-is with provided content type
+      upstreamBody = body;
+      if (contentType) upstreamHeaders['Content-Type'] = contentType;
+    }
 
     const upstream = await fetch(targetUrl, {
       method: method || 'POST',
-      headers: forwardHeaders,
-      body: body,
+      headers: upstreamHeaders,
+      body: upstreamBody,
     });
 
     const responseText = await upstream.text();

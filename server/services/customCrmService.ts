@@ -374,28 +374,33 @@ export async function syncLead(
       const relayEndpoint = settings.relayUrl.replace(/\/$/, '') + '/relay';
       console.log(`[CustomCRM] Routing via relay: ${relayEndpoint} → ${url}`);
 
-      let bodyForRelay: string;
-      let contentTypeForRelay: string;
+      const relayHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+      const relaySecret = process.env.CUSTOM_CRM_RELAY_SECRET;
+      if (relaySecret) {
+        relayHeaders['Authorization'] = `Bearer ${relaySecret}`;
+      }
+
+      const relayBody: Record<string, unknown> = {
+        targetUrl: url,
+        method,
+        headers,
+      };
 
       if (settings.contentType === 'json') {
-        bodyForRelay = JSON.stringify(payload);
-        contentTypeForRelay = 'application/json';
+        // Send serialised JSON body — relay will forward as application/json
+        relayBody.body = JSON.stringify(payload);
+        relayBody.contentType = 'application/json';
       } else {
-        // Encode form-data payload as URL-encoded string for relay forwarding
-        bodyForRelay = new URLSearchParams(payload).toString();
-        contentTypeForRelay = 'application/x-www-form-urlencoded';
+        // Send raw key-value pairs — relay will reconstruct multipart FormData
+        // preserving the same wire format as the direct fetch path
+        relayBody.fields = payload;
+        relayBody.contentType = 'form-data';
       }
 
       response = await fetch(relayEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetUrl: url,
-          method,
-          contentType: contentTypeForRelay,
-          headers,
-          body: bodyForRelay,
-        }),
+        headers: relayHeaders,
+        body: JSON.stringify(relayBody),
       });
     } else if (settings.contentType === 'json') {
       headers['Content-Type'] = 'application/json';
